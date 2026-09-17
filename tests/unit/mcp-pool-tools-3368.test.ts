@@ -47,11 +47,15 @@ test("server.ts imports the poolTools collection", () => {
   );
 });
 
-test("server.ts registers poolTools via the standard registration loop", () => {
+test("server.ts registers poolTools via the shared collection registrar", () => {
+  // #9xxx DRY refactor: the per-collection Object.values(...).forEach loops
+  // (memory, skill, plugin, compression, pool, gamification, notion,
+  // localCorpus, obsidian) were consolidated into one registerToolCollection()
+  // helper that every collection, including poolTools, now flows through.
   assert.match(
     serverSource,
-    /Object\.values\(poolTools\)\.forEach/,
-    "server.ts must iterate poolTools through server.registerTool like the other collections"
+    /registerToolCollection\(\s*server,\s*Object\.values\(poolTools\)/,
+    "server.ts must route poolTools through registerToolCollection() like the other collections"
   );
 });
 
