@@ -244,6 +244,15 @@ const TOOLS_GROUP: SidebarItemGroup = {
       icon: "cloud",
     },
     {
+      id: "conductor",
+      href: "/dashboard/conductor",
+      i18nKey: "conductor",
+      subtitleKey: "conductorSubtitle",
+      icon: "account_tree",
+      labelFallback: "Conductor",
+      subtitleFallback: "CLI-agent fleet",
+    },
+    {
       id: "agent-bridge",
       href: "/dashboard/tools/agent-bridge",
       i18nKey: "agentBridge",
@@ -400,6 +409,13 @@ const LOGS_GROUP: SidebarItemGroup = {
       i18nKey: "logsTimeline",
       subtitleKey: "logsTimelineSubtitle",
       icon: "view_timeline",
+    },
+    {
+      id: "conversations",
+      href: "/dashboard/conversations",
+      i18nKey: "conversations",
+      subtitleKey: "conversationsSubtitle",
+      icon: "forum",
     },
   ],
 };

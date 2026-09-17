@@ -152,7 +152,7 @@ export const WEB_COOKIE_PROVIDERS = {
     textIcon: "M365",
     website: "https://m365.cloud.microsoft/chat",
     authHint:
-      "Sign in at m365.cloud.microsoft/chat, then open DevTools → Network → filter 'WS' → click the Chathub WebSocket connection. Copy both the access_token query parameter AND the account-specific Chathub path segment from its request URL (wss://…/Chathub/<path>?…&access_token=…). It is NOT an Authorization: Bearer header on an XHR/Fetch request. The token is short-lived; this is an unofficial integration.",
+      "Sign in at m365.cloud.microsoft/chat, then open DevTools → Network → filter 'WS' → click the Chathub WebSocket connection. Copy both the access_token query parameter AND the account-specific Chathub path segment from its request URL (wss://…/Chathub/<path>?…&access_token=…). It is NOT an Authorization: Bearer header on an XHR/Fetch request. The token is short-lived; this is an unofficial integration. Optional: store a refresh_token in providerSpecificData.refreshToken (any Microsoft device-code/refresh flow for the substrate.office.com/sydney scopes) and OmniRoute pre-flight-refreshes the access token itself — otherwise re-capture after every ~75 min expiry.",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
   },
@@ -245,9 +245,25 @@ export const WEB_COOKIE_PROVIDERS = {
       "Log in to yuanbao.tencent.com, then paste the full Cookie header (DevTools → Network → any /api request → Request Headers → Cookie). It must contain hy_user and hy_token.",
     riskNoticeVariant: "webCookie",
   },
+  "tencent-aistudio-web": {
+    id: "tencent-aistudio-web",
+    alias: "tasw",
+    name: "Tencent AI Studio (Free)",
+    icon: "auto_awesome",
+    color: "#0052D9",
+    textIcon: "TAS",
+    website: "https://aistudio.tencent.ai",
+    hasFree: true,
+    freeNote:
+      "Free web session on Tencent AI Studio (aistudio.tencent.ai) — Direct chat with Hunyuan models (hy3-g, HunyuanDefault, Hunyuan3D). Cookie authentication.",
+    authHint:
+      "Log in to aistudio.tencent.ai, open DevTools -> Network, copy any request Cookie header containing session tokens.",
+    riskNoticeVariant: "webCookie",
+  },
   huggingchat: {
     id: "huggingchat",
-    // "hc" belongs to the hackclub provider; huggingchat uses its own id as alias.
+    // huggingchat is addressed by its own id as alias (stable routing; the
+    // historical "hc" alias collided with another provider and was retired).
     alias: "huggingchat",
     name: "HuggingChat (Free)",
     icon: "auto_awesome",
@@ -308,14 +324,9 @@ export const WEB_COOKIE_PROVIDERS = {
     icon: "auto_awesome",
     color: "#2563EB",
     textIcon: "KW",
-    // Kimi official-partnership aff link (2026-07) — the "Kimi Coding Plan"
-    // tracking link (same origin as the plain www.kimi.com login flow below,
-    // so the "Open {host}" credential guide in WebSessionCredentialGuide.tsx /
-    // AddApiKeyModal.tsx is unaffected: origin, not path, decides localStorage
-    // access). Was `https://www.kimi.com` (no aff attribution).
-    website: "https://www.kimi.com/code?aff=omniroute",
+    website: "https://www.kimi.ai",
     authHint:
-      "Paste access_token from www.kimi.com DevTools → Application → Local Storage. A legacy kimi-auth cookie is also accepted.",
+      "Paste access_token from www.kimi.ai DevTools → Application → Local Storage. A legacy kimi-auth cookie is also accepted.",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
   },
@@ -341,7 +352,7 @@ export const WEB_COOKIE_PROVIDERS = {
     icon: "auto_awesome",
     color: "#5B21B6",
     textIcon: "HL",
-    website: "https://hailuo.ai",
+    website: "https://chat.minimax.io",
     authHint:
       "Open hailuo.ai, log in, then open DevTools → Application → Local Storage → copy the " +
       '"_token" value. device_id/uuid fingerprint fields are derived automatically; if ' +
@@ -410,17 +421,18 @@ export const WEB_COOKIE_PROVIDERS = {
   "zai-web": {
     id: "zai-web",
     alias: "zw",
-    name: "Z.ai Web (Free)",
+    name: "Z.ai Web",
     icon: "auto_awesome",
     color: "#2563EB",
     textIcon: "ZW",
     website: "https://chat.z.ai",
     hasFree: true,
     freeNote:
-      "Free consumer web session — GLM chat models via chat.z.ai. Distinct from the API-key zai/glm providers. No subscription required.",
+      "Consumer web session for the four models currently visible in chat.z.ai. Distinct from the API-key zai/glm providers.",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
-    authHint: "Paste the full Cookie header from chat.z.ai (must include the token=<JWT> cookie)",
+    authHint:
+      'Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport.',
   },
   promptql: {
     id: "promptql",

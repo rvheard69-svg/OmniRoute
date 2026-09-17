@@ -2,7 +2,7 @@
  * Issue #6674 — Add Naga.ac and ChatAnywhere as gpt4free-ecosystem aggregator providers.
  *
  * Verifies both providers are wired end-to-end the same way as the other aggregator
- * gateway providers (g4f-groq, freetheai, hackclub):
+ * gateway providers (g4f-groq, freetheai):
  *   - present in the executor REGISTRY with an OpenAI-compatible shape
  *   - resolvable through getExecutor() (falls through to DefaultExecutor)
  *   - listed in AGGREGATOR_PROVIDER_IDS so they show up in the aggregator category
@@ -49,8 +49,10 @@ const PROVIDERS: Record<string, { id: string; authType: string; baseUrl: string;
   chatanywhere: {
     id: "chatanywhere",
     authType: "apikey",
-    baseUrl: "https://api.chatanywhere.tech/v1/chat/completions",
-    website: "https://api.chatanywhere.tech",
+    // #9584 (wave4 gateway audit): moved to the international api.chatanywhere.org
+    // endpoint; metadata website is the product page https://chatanywhere.tech.
+    baseUrl: "https://api.chatanywhere.org/v1/chat/completions",
+    website: "https://chatanywhere.tech",
   },
 };
 

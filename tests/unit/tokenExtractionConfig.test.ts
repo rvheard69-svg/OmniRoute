@@ -106,6 +106,12 @@ describe("tokenExtractionConfig", () => {
     assert.doesNotMatch(cfg?.instructions || "", /RPSCAuth/i);
   });
 
+  it("extracts zai-web auth from localStorage rather than a cookie", () => {
+    const cfg = getExtractionConfig("zai-web");
+    assert.deepEqual(cfg?.tokenSources, [{ type: "localStorage", key: "token" }]);
+    assert.match(cfg?.instructions ?? "", /CAPTCHA/);
+  });
+
   it("listExtractionConfigs returns all configs as an array", () => {
     const all = listExtractionConfigs();
     assert.ok(Array.isArray(all));
@@ -121,9 +127,13 @@ describe("tokenExtractionConfig", () => {
   });
 
   it("every provider ID matches the executor naming convention", () => {
+    // volcengine-console is exempt: it extracts a console session cookie for
+    // provider binding (volcenginePlanBinding), not a chat-web credential, so
+    // the "-web" suffix convention does not apply to it.
+    const exempt = new Set(["volcengine-console"]);
     for (const providerId of TOKEN_EXTRACTION_CONFIGS.keys()) {
       assert.ok(
-        providerId.endsWith("-web"),
+        providerId.endsWith("-web") || exempt.has(providerId),
         `Provider ID "${providerId}" should follow the "-web" naming convention`
       );
     }
