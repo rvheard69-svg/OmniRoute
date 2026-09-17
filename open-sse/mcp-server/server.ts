@@ -270,6 +270,56 @@ function withScopeEnforcement(
   };
 }
 
+interface McpToolCollectionEntry {
+  name: string;
+  description: string;
+  scopes?: readonly string[];
+  inputSchema: { parse: (input: unknown) => unknown };
+  handler: (parsedArgs: unknown, extra?: McpToolExtraLike) => Promise<unknown>;
+}
+
+// Shared registration path for the dynamically-built MCP tool collections below
+// (memory, skill, agent-skill, github-skill, plugin, compression, pool,
+// gamification, notion, localCorpus, obsidian). Replaces what was ~10
+// near-identical copy-pasted parse -> handler -> try/catch loops, and
+// standardizes error responses on sanitizeErrorMessage() per Hard Rule #12
+// (never return raw err.message from an MCP handler response) — previously
+// only the localCorpus loop did this; the rest leaked raw err.message.
+function registerToolCollection(
+  server: McpServer,
+  tools: Iterable<McpToolCollectionEntry>,
+  { passExtra = true }: { passExtra?: boolean } = {}
+): void {
+  for (const toolDef of tools) {
+    server.registerTool(
+      toolDef.name,
+      {
+        description: toolDef.description,
+        // @ts-ignore: dynamic zod access
+        inputSchema: toolDef.inputSchema,
+      },
+      withScopeEnforcement(
+        toolDef.name,
+        async (args, extra) => {
+          try {
+            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
+            const result = passExtra
+              ? await toolDef.handler(parsedArgs, extra)
+              : await toolDef.handler(parsedArgs);
+            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+          } catch (error) {
+            return {
+              content: [{ type: "text" as const, text: `Error: ${sanitizeErrorMessage(error)}` }],
+              isError: true,
+            };
+          }
+        },
+        toolDef.scopes
+      )
+    );
+  }
+}
+
 // process.uptime() (the source of health.uptime) returns a number, not a string;
 // the shared toString() helper only passes through actual strings, so a naive
 // toString(health.uptime, "unknown") silently discarded every real uptime value.
@@ -1068,310 +1118,49 @@ export function createMcpServer(): McpServer {
   registerToolSearchTool(server, withScopeEnforcement);
 
   // ── Memory Tools ──────────────────────────────
-  Object.values(memoryTools).forEach((toolDef: any) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore - handler type lost through dynamic Object.values() access
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, Object.values(memoryTools));
 
   // ── Skill Tools ──────────────────────────────
-  Object.values(skillTools).forEach((toolDef: any) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore - handler type lost through dynamic Object.values() access
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, Object.values(skillTools));
 
   // ── Agent Skill Tools ─────────────────────────
-  Object.values(agentSkillTools).forEach((toolDef) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(toolDef.name, async (args, extra) => {
-        try {
-          const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-          // @ts-expect-error - handler type lost through dynamic Object.values() access
-          const result = await toolDef.handler(parsedArgs, extra);
-          return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-        }
-      })
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, Object.values(agentSkillTools));
 
   // ── GitHub Skill Tools ──────────────────────────
-  Object.values(githubSkillTools).forEach((toolDef) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-expect-error - handler type lost through dynamic Object.values() access
-            const result = await toolDef.handler(parsedArgs);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // extra is intentionally not forwarded here (matches prior behavior).
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, Object.values(githubSkillTools), { passExtra: false });
 
   // ── Plugin Tools ──────────────────────────────
-  pluginTools.forEach((toolDef) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore: handler expected specific object
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, pluginTools);
 
   // ── Compression Tools ─────────────────────────
-  Object.values(compressionTools).forEach((toolDef: any) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore - handler type lost through dynamic Object.values() access
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, Object.values(compressionTools));
 
   // ── Web-Session Pool Tools (#3368 observability) ─
-  // Typed structurally (not `any`) — the shape is pinned by
-  // tests/unit/mcp-tool-collections-shape.test.ts, so the loop can stay strict.
-  Object.values(poolTools).forEach(
-    (toolDef: {
-      name: string;
-      description: string;
-      scopes: readonly string[];
-      inputSchema: { parse: (input: unknown) => unknown };
-      handler: (parsedArgs: unknown, extra?: unknown) => Promise<unknown>;
-    }) => {
-      server.registerTool(
-        toolDef.name,
-        {
-          description: toolDef.description,
-          // @ts-ignore: dynamic zod access
-          inputSchema: toolDef.inputSchema,
-        },
-        withScopeEnforcement(
-          toolDef.name,
-          async (args, extra) => {
-            try {
-              const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-              const result = await toolDef.handler(parsedArgs, extra);
-              return {
-                content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-              };
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : String(err);
-              return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-            }
-          },
-          toolDef.scopes
-        )
-      );
-    }
-  );
+  // Shape pinned by tests/unit/mcp-tool-collections-shape.test.ts.
+  registerToolCollection(server, Object.values(poolTools));
 
   // ── Gamification Tools ────────────────────────
-  gamificationTools.forEach((toolDef) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore: handler expected specific object
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, gamificationTools);
 
   // ── Notion Context Source Tools ───────────────
-  notionTools.forEach((toolDef) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore: handler expected specific object
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, notionTools);
 
   // ── Local Corpus Context Source Tools ─────────
-  localCorpusTools.forEach((toolDef) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore: handler expected specific object
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (error) {
-            return {
-              content: [{ type: "text" as const, text: `Error: ${sanitizeErrorMessage(error)}` }],
-              isError: true,
-            };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, localCorpusTools);
 
   // ── Obsidian Context Source Tools ─────────────
-  obsidianTools.forEach((toolDef) => {
-    server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        // @ts-ignore: dynamic zod access
-        inputSchema: toolDef.inputSchema,
-      },
-      withScopeEnforcement(
-        toolDef.name,
-        async (args, extra) => {
-          try {
-            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
-            // @ts-ignore: handler expected specific object
-            const result = await toolDef.handler(parsedArgs, extra);
-            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
-          }
-        },
-        toolDef.scopes
-      )
-    );
-  });
+  // @ts-ignore: dynamic tool collection shape
+  registerToolCollection(server, obsidianTools);
 
   // ── Dynamic Skill Tools (from skills table) ──
   const skillToMcpToolName = (skill: { name: string }) =>
